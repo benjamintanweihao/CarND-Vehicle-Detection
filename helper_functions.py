@@ -1,22 +1,9 @@
-# Perform a Histogram of Oriented Gradients (HOG) feature extraction on a
-# labeled training set of images and train a classifier Linear SVM classifier
-# Optionally, you can also apply a color transform and append binned color
-# features, as well as histograms of color, to your HOG feature vector.
-# Note: for those first two steps don't forget to normalize your features
-# and randomize a selection for training and testing.
-# Implement a sliding-window technique and use your trained classifier to search for vehicles in images.
-# Run your pipeline on a video stream (start with the test_video.mp4 and later implement on full project_video.mp4) and create a heat map of recurring detections frame by frame to reject outliers and follow detected vehicles.
-# Estimate a bounding box for vehicles detected.
-import glob
 import cv2
+import matplotlib.image as mpimg
 import numpy as np
-import time
 from skimage.feature import hog
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import LinearSVC
-from tqdm import tqdm
-
 
 
 def data_look(cars, non_cars):
@@ -26,81 +13,100 @@ def data_look(cars, non_cars):
             'data_type': cv2.imread(cars[0]).dtype}
 
 
-def bin_spatial(image, size=(32, 32)):
-    image = np.copy(image)
-    small_img = cv2.resize(image, size)
-    features = small_img.ravel()
-
+# Define a function to compute binned color features
+def bin_spatial(img, size=(32, 32)):
+    features = cv2.resize(img, size).ravel()
     return features
 
 
-def color_hist(image, bins=32, bins_range=(0, 256)):
-    bhist = np.histogram(image[:, :, 0], bins=bins, range=bins_range)
-    ghist = np.histogram(image[:, :, 1], bins=bins, range=bins_range)
-    rhist = np.histogram(image[:, :, 2], bins=bins, range=bins_range)
-    hist_features = np.concatenate((bhist[0], ghist[0], rhist[0]))
-
+# Define a function to compute color histogram features
+# NEED TO CHANGE bins_range if reading .png files with mpimg!
+def color_hist(img, nbins=32, bins_range=(0, 256)):
+    # Compute the histogram of the color channels separately
+    channel1_hist = np.histogram(img[:, :, 0], bins=nbins, range=bins_range)
+    channel2_hist = np.histogram(img[:, :, 1], bins=nbins, range=bins_range)
+    channel3_hist = np.histogram(img[:, :, 2], bins=nbins, range=bins_range)
+    # Concatenate the histograms into a single feature vector
+    hist_features = np.concatenate((channel1_hist[0], channel2_hist[0], channel3_hist[0]))
+    # Return the individual histograms, bin_centers and feature vector
     return hist_features
 
 
-def get_hog_features(image, orient=9, pix_per_cell=8, cell_per_block=2, feature_vector=True):
-    features, hog_image = hog(image, orientations=orient,
-                              pixels_per_cell=(pix_per_cell, pix_per_cell),
-                              cells_per_block=(cell_per_block, cell_per_block),
-                              visualise=True, feature_vector=feature_vector,
-                              block_norm="L2-Hys")
-
-    return features, hog_image
-
-
-def extract_features(images,
-                     spatial_size=(32, 32),
-                     hist_bins=32,
-                     hist_range=(0, 256)):
-    features = []
-    for file in tqdm(images):
-        image = cv2.imread(file)
-        feature_image = np.copy(image)
-        spatial_features = bin_spatial(feature_image, spatial_size)
-        hist_features = color_hist(feature_image, bins=hist_bins, bins_range=hist_range)
-
-        features.append(np.concatenate((spatial_features, hist_features)))
-
-    return features
+def get_hog_features(img, orient, pix_per_cell, cell_per_block,
+                     vis=False, feature_vec=True):
+    # Call with two outputs if vis==True
+    if vis == True:
+        features, hog_image = hog(img, orientations=orient,
+                                  pixels_per_cell=(pix_per_cell, pix_per_cell),
+                                  cells_per_block=(cell_per_block, cell_per_block),
+                                  transform_sqrt=True,
+                                  visualise=vis, feature_vector=feature_vec)
+        return features, hog_image
+    # Otherwise call with one output
+    else:
+        features = hog(img, orientations=orient,
+                       pixels_per_cell=(pix_per_cell, pix_per_cell),
+                       cells_per_block=(cell_per_block, cell_per_block),
+                       transform_sqrt=True,
+                       visualise=vis, feature_vector=feature_vec)
+        return features
 
 
-def extract_hog_features(images, orient=9, pix_per_cell=8, cell_per_block=2, hog_channel=0):
+def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
+                     hist_bins=32, orient=9,
+                     pix_per_cell=8, cell_per_block=2, hog_channel=0,
+                     spatial_feat=True, hist_feat=True, hog_feat=True):
     # Create a list to append feature vectors to
     features = []
     # Iterate through the list of images
-    for file in tqdm(images):
+    for file in imgs:
+        file_features = []
         # Read in each one by one
-        image = cv2.imread(file)
-        feature_image = np.copy(image)
-        # Call get_hog_features() with vis=False, feature_vec=True
-        if hog_channel == 'ALL':
-            hog_features = []
-            for channel in range(feature_image.shape[2]):
-                hog_feature, _ = get_hog_features(feature_image[:, :, channel],
-                                                  orient,
-                                                  pix_per_cell,
-                                                  cell_per_block)
-                hog_features.append(hog_feature)
-            hog_features = np.ravel(hog_features)
+        image = mpimg.imread(file)
+        # apply color conversion if other than 'RGB'
+        if color_space != 'RGB':
+            if color_space == 'HSV':
+                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+            elif color_space == 'LUV':
+                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2LUV)
+            elif color_space == 'HLS':
+                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+            elif color_space == 'YUV':
+                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
+            elif color_space == 'YCrCb':
+                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
         else:
-            hog_features, _ = get_hog_features(feature_image[:, :, hog_channel],
-                                               orient,
-                                               pix_per_cell,
-                                               cell_per_block)
-        # Append the new feature vector to the features list
-        features.append(hog_features)
+            feature_image = np.copy(image)
+
+        if spatial_feat == True:
+            spatial_features = bin_spatial(feature_image, size=spatial_size)
+            file_features.append(spatial_features)
+        if hist_feat == True:
+            # Apply color_hist()
+            hist_features = color_hist(feature_image, nbins=hist_bins)
+            file_features.append(hist_features)
+        if hog_feat == True:
+            # Call get_hog_features() with vis=False, feature_vec=True
+            if hog_channel == 'ALL':
+                hog_features = []
+                for channel in range(feature_image.shape[2]):
+                    hog_features.append(get_hog_features(feature_image[:, :, channel],
+                                                         orient, pix_per_cell, cell_per_block,
+                                                         vis=False, feature_vec=True))
+                hog_features = np.ravel(hog_features)
+            else:
+                hog_features = get_hog_features(feature_image[:, :, hog_channel], orient,
+                                                pix_per_cell, cell_per_block, vis=False, feature_vec=True)
+            # Append the new feature vector to the features list
+            file_features.append(hog_features)
+        features.append(np.concatenate(file_features))
     # Return list of feature vectors
     return features
 
 
 def create_dataset(car_features, not_car_features, test_size=0.2):
     assert len(car_features) > 0
-    assert len(non_car_features) > 0
+    assert len(not_car_features) > 0
 
     # create an arary stack of feature vectors
     X = np.vstack((car_features, not_car_features)).astype(np.float64)
@@ -114,7 +120,15 @@ def create_dataset(car_features, not_car_features, test_size=0.2):
 
     rand_state = np.random.randint(0, 100)
 
-    return train_test_split(scaled_X, y, test_size=test_size, random_state=rand_state)
+    X_train, X_test, y_train, y_test = \
+        train_test_split(scaled_X, y, test_size=test_size, random_state=rand_state)
+
+    return {"X_train": X_train,
+            "X_test": X_test,
+            "y_train": y_train,
+            "y_test": y_test,
+            "X_scaler": X_scaler
+            }
 
 
 #####################
