@@ -2,6 +2,8 @@ import glob
 import time
 
 import matplotlib.pyplot as plt
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from scipy.ndimage import label
 from sklearn.svm import LinearSVC
 from tqdm import tqdm
 
@@ -17,7 +19,7 @@ import matplotlib.image as mpimg
 # and the list of windows to be searched (output of slide_windows())
 def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
                         hist_bins=32, orient=9,
-                        pix_per_cell=8, cell_per_block=2, hog_channel=0,
+                        pix_per_cell=8, cell_per_block=2, hog_channel='ALL',
                         spatial_feat=True, hist_feat=True, hog_feat=True):
     feature_image = None
 
@@ -65,50 +67,10 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
     return np.concatenate(img_features)
 
 
-# Define a function you will pass an image
-# and the list of windows to be searched (output of slide_windows())
-def search_windows(img,
-                   windows, clf,
-                   scaler,
-                   color_space='RGB',
-                   spatial_size=(32, 32),
-                   hist_bins=32,
-                   hist_range=(0, 256),
-                   orient=9,
-                   pix_per_cell=8,
-                   cell_per_block=2,
-                   hog_channel=0,
-                   spatial_feat=True,
-                   hist_feat=True,
-                   hog_feat=True):
-    # 1) Create an empty list to receive positive detection windows
-    on_windows = []
-    # 2) Iterate over all windows in the list
-    for window in windows:
-        # 3) Extract the test window from original image
-        test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]], (64, 64))
-        # 4) Extract features for that window using single_img_features()
-        features = single_img_features(test_img, color_space=color_space,
-                                       spatial_size=spatial_size, hist_bins=hist_bins,
-                                       orient=orient, pix_per_cell=pix_per_cell,
-                                       cell_per_block=cell_per_block,
-                                       hog_channel=hog_channel, spatial_feat=spatial_feat,
-                                       hist_feat=hist_feat, hog_feat=hog_feat)
-        # 5) Scale extracted features to be fed to classifier
-        test_features = scaler.transform(np.array(features).reshape(1, -1))
-        # 6) Predict using your classifier
-        prediction = clf.predict(test_features)
-        # 7) If positive (prediction == 1) then save the window
-        if prediction == 1:
-            on_windows.append(window)
-    # 8) Return windows for positive detections
-    return on_windows
-
-
 car_images = glob.glob('data/vehicles/**/*.png', recursive=True)
 non_car_images = glob.glob('data/non-vehicles/*/**.png', recursive=True)
 
-sample_size = 500
+sample_size = 1000
 cars = car_images[0:sample_size]
 non_cars = non_car_images[0:sample_size]
 
@@ -117,17 +79,12 @@ orient = 9  # HOG orientations
 pix_per_cell = 8  # HOG pixels per cell
 cell_per_block = 2  # HOG cells per block
 hog_channel = 'ALL'  # Can be 0, 1, 2, or "ALL"
-spatial_size = (32, 32)  # Spatial binning dimensions
-hist_bins = 32  # Number of histogram bins
+spatial_size = (16, 16)  # Spatial binning dimensions
+hist_bins = 16  # Number of histogram bins
 spatial_feat = True  # Spatial features on or off
 hist_feat = True  # Histogram features on or off
 hog_feat = True  # HOG features on or off
-y_start_stop = [400, 656]  # Min and max in y to search in slide_window()
-
-# TODO: Just change find_cards to take in y_start_stop
-ystart = y_start_stop[0]
-ystop = y_start_stop[1]
-scale = 1.5
+y_start_stop = [None, None]  # Min and max in y to search in slide_window()
 
 car_features = []
 for file in tqdm(cars):
@@ -180,12 +137,24 @@ print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
 # Check the prediction time for a single sample
 t = time.time()
 
-img = mpimg.imread('test_images/test2.jpg')
+ystart = 400
+ystop = 656
+scale = 1.5
 
-out_img = find_cars(img, scale=scale, ystart=ystart, ystop=ystop,
-                              pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
-                              orient=orient, spatial_size=spatial_size, hist_bins=hist_bins,
-                              X_scaler=X_scaler, svc=svc)
 
-plt.imshow(out_img)
-plt.show()
+def pipeline(img):
+    out_img, heat_map = find_cars(img, scale=scale, ystart=ystart, ystop=ystop,
+                                  pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
+                                  orient=orient, spatial_size=spatial_size, hist_bins=hist_bins,
+                                  X_scaler=X_scaler, svc=svc)
+
+    heat_map = apply_threshold(heat_map, 2)
+    labels = label(heat_map)
+
+    return draw_labeled_bboxes(np.copy(img), labels)
+
+video_file_name = "project_video.mp4"
+write_output = 'output_video/' + video_file_name
+clip1 = VideoFileClip(video_file_name)
+clip2 = clip1.fl_image(pipeline)
+clip2.write_videofile(write_output, audio=False)

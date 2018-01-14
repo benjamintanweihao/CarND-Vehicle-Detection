@@ -35,7 +35,7 @@ def color_hist(img, nbins=32):
 def get_hog_features(img, orient, pix_per_cell, cell_per_block,
                      vis=False, feature_vec=True):
     # Call with two outputs if vis==True
-    if vis == True:
+    if vis:
         features, hog_image = hog(img, orientations=orient,
                                   pixels_per_cell=(pix_per_cell, pix_per_cell),
                                   cells_per_block=(cell_per_block, cell_per_block),
@@ -79,11 +79,11 @@ def create_dataset(car_features, not_car_features, test_size=0.2):
             }
 
 
-def find_cars(img, scale, ystart, ystop, pix_per_cell, cell_per_block, orient, spatial_size, hist_bins, X_scaler,
-              svc):
+def find_cars(img, scale, ystart, ystop, pix_per_cell, cell_per_block,
+              orient, spatial_size, hist_bins, X_scaler, svc):
     draw_img = np.copy(img)
     # Make a heatmap of zeros
-    # heatmap = np.zeros_like(img[:,:,0])
+    heatmap = np.zeros_like(img[:, :, 0])
     img = img.astype(np.float32) / 255
 
     img_tosearch = img[ystart:ystop, :, :]
@@ -99,7 +99,7 @@ def find_cars(img, scale, ystart, ystop, pix_per_cell, cell_per_block, orient, s
     # Define blocks and steps as above
     nxblocks = (ch1.shape[1] // pix_per_cell) - 1
     nyblocks = (ch1.shape[0] // pix_per_cell) - 1
-    nfeat_per_block = orient * cell_per_block ** 2
+
     window = 64
     nblocks_per_window = (window // pix_per_cell) - 1
     cells_per_step = 2
@@ -141,7 +141,27 @@ def find_cars(img, scale, ystart, ystop, pix_per_cell, cell_per_block, orient, s
                 win_draw = np.int(window * scale)
                 cv2.rectangle(draw_img, (xbox_left, ytop_draw + ystart),
                               (xbox_left + win_draw, ytop_draw + win_draw + ystart), (0, 0, 255), 6)
-                # heatmap[ytop_draw+ystart:ytop_draw+win_draw+ystart, xbox_left:xbox_left+win_draw] += 1
+                heatmap[ytop_draw + ystart:ytop_draw + win_draw + ystart, xbox_left:xbox_left + win_draw] += 1
 
-    # return draw_img, heatmap
-    return draw_img
+    return draw_img, heatmap
+
+
+def apply_threshold(heat_map, threshold):
+    heat_map[heat_map <= threshold] = 0
+    return heat_map
+
+
+def draw_labeled_bboxes(img, labels):
+    # Iterate through all detected cars
+    for car_number in range(1, labels[1] + 1):
+        # Find pixels with each car_number label value
+        nonzero = (labels[0] == car_number).nonzero()
+        # Identify x and y values of those pixels
+        nonzeroy = np.array(nonzero[0])
+        nonzerox = np.array(nonzero[1])
+        # Define a bounding box based on min/max x and y
+        bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
+        # Draw the box on the image
+        cv2.rectangle(img, bbox[0], bbox[1], (0, 0, 255), 6)
+    # Return the image
+    return img
