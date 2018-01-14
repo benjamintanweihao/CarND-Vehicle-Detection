@@ -17,7 +17,7 @@ import matplotlib.image as mpimg
 
 # Define a function you will pass an image
 # and the list of windows to be searched (output of slide_windows())
-def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
+def single_img_features(img, color_space, spatial_size=(32, 32),
                         hist_bins=32, orient=9,
                         pix_per_cell=8, cell_per_block=2, hog_channel='ALL',
                         spatial_feat=True, hist_feat=True, hog_feat=True):
@@ -70,9 +70,12 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
 car_images = glob.glob('data/vehicles/**/*.png', recursive=True)
 non_car_images = glob.glob('data/non-vehicles/*/**.png', recursive=True)
 
-sample_size = 1000
-cars = car_images[0:sample_size]
-non_cars = non_car_images[0:sample_size]
+# sample_size = 1000
+# cars = car_images[0:sample_size]
+# non_cars = non_car_images[0:sample_size]
+
+cars = car_images
+non_cars = non_car_images
 
 color_space = 'YCrCb'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 orient = 9  # HOG orientations
@@ -88,8 +91,10 @@ y_start_stop = [None, None]  # Min and max in y to search in slide_window()
 
 car_features = []
 for file in tqdm(cars):
-    img = cv2.imread(file)
+    img = mpimg.imread(file)
+
     car_features.append(single_img_features(img,
+                                            color_space='YCrCb',
                                             spatial_size=spatial_size,
                                             hist_bins=hist_bins,
                                             orient=orient,
@@ -102,8 +107,9 @@ for file in tqdm(cars):
 
 non_car_features = []
 for file in tqdm(non_cars):
-    img = cv2.imread(file)
+    img = mpimg.imread(file)
     non_car_features.append(single_img_features(img,
+                                                color_space='YCrCb',
                                                 spatial_size=spatial_size,
                                                 hist_bins=hist_bins,
                                                 orient=orient,
@@ -148,7 +154,7 @@ def pipeline(img):
                                   orient=orient, spatial_size=spatial_size, hist_bins=hist_bins,
                                   X_scaler=X_scaler, svc=svc)
 
-    heat_map = apply_threshold(heat_map, 2)
+    heat_map = apply_threshold(heat_map, 1)
     labels = label(heat_map)
 
     return draw_labeled_bboxes(np.copy(img), labels)
