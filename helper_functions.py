@@ -5,6 +5,56 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 
+def single_img_features(img, color_space, spatial_size=(32, 32),
+                        hist_bins=32, orient=9,
+                        pix_per_cell=8, cell_per_block=2, hog_channel='ALL',
+                        spatial_feat=True, hist_feat=True, hog_feat=True):
+    feature_image = None
+
+    # 1) Define an empty list to receive features
+    img_features = []
+    # 2) Apply color conversion if other than 'RGB'
+    if color_space != 'RGB':
+        if color_space == 'HSV':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+        elif color_space == 'LUV':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
+        elif color_space == 'HLS':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+        elif color_space == 'YUV':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+        elif color_space == 'YCrCb':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
+    else:
+        feature_image = np.copy(img)
+    # 3) Compute spatial features if flag is set
+    if spatial_feat:
+        spatial_features = bin_spatial(feature_image, size=spatial_size)
+        # 4) Append features to list
+        img_features.append(spatial_features)
+    # 5) Compute histogram features if flag is set
+    if hist_feat:
+        hist_features = color_hist(feature_image, nbins=hist_bins)
+        # 6) Append features to list
+        img_features.append(hist_features)
+    # 7) Compute HOG features if flag is set
+    if hog_feat:
+        if hog_channel == 'ALL':
+            hog_features = []
+            for channel in range(feature_image.shape[2]):
+                hog_features.extend(get_hog_features(feature_image[:, :, channel],
+                                                     orient, pix_per_cell, cell_per_block,
+                                                     vis=False, feature_vec=True))
+        else:
+            hog_features = get_hog_features(feature_image[:, :, hog_channel], orient,
+                                            pix_per_cell, cell_per_block, vis=False, feature_vec=True)
+        # 8) Append features to list
+        img_features.append(hog_features)
+
+    # 9) Return concatenated array of features
+    return np.concatenate(img_features)
+
+
 def convert_color(img, conv='RGB2YCrCb'):
     if conv == 'RGB2YCrCb':
         return cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
@@ -81,12 +131,14 @@ def create_dataset(car_features, not_car_features, test_size=0.2):
 
 def find_cars(img, scale, ystart, ystop, pix_per_cell, cell_per_block,
               orient, spatial_size, hist_bins, X_scaler, svc):
+    rectangles = []
+
     draw_img = np.copy(img)
     # Make a heatmap of zeros
-    heatmap = np.zeros_like(img[:, :, 0])
-    img = img.astype(np.float32) / 255
+    heatmap = np.zeros_like(draw_img[:, :, 0])
+    draw_img = draw_img.astype(np.float32) / 255
 
-    img_tosearch = img[ystart:ystop, :, :]
+    img_tosearch = draw_img[ystart:ystop, :, :]
     ctrans_tosearch = convert_color(img_tosearch)
     if scale != 1:
         imshape = ctrans_tosearch.shape
@@ -142,8 +194,20 @@ def find_cars(img, scale, ystart, ystop, pix_per_cell, cell_per_block,
                 cv2.rectangle(draw_img, (xbox_left, ytop_draw + ystart),
                               (xbox_left + win_draw, ytop_draw + win_draw + ystart), (0, 0, 255), 6)
                 heatmap[ytop_draw + ystart:ytop_draw + win_draw + ystart, xbox_left:xbox_left + win_draw] += 1
+                rectangles.append(
+                    ((xbox_left, ytop_draw + ystart), (xbox_left + win_draw, ytop_draw + win_draw + ystart)))
+    return draw_img, heatmap, rectangles
 
-    return draw_img, heatmap
+
+def add_heat(heatmap, bbox_list):
+    # Iterate through list of bboxes
+    for box in bbox_list:
+        # Add += 1 for all pixels inside each bbox
+        # Assuming each "box" takes the form ((x1, y1), (x2, y2))
+        heatmap[box[0][1]:box[1][1], box[0][0]:box[1][0]] += 1
+
+    # Return updated heatmap
+    return heatmap
 
 
 def apply_threshold(heat_map, threshold):
