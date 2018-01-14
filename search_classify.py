@@ -1,22 +1,17 @@
-import matplotlib.image as mpimg
-import matplotlib.pyplot as plt
-import numpy as np
-import cv2
 import glob
 import time
+
+import matplotlib.pyplot as plt
 from sklearn.svm import LinearSVC
-from sklearn.preprocessing import StandardScaler
-from skimage.feature import hog
 from tqdm import tqdm
 
 from helper_functions import *
-from sklearn.model_selection import train_test_split
+import matplotlib.image as mpimg
+
 
 # Define a function to extract features from a single image window
 # This function is very similar to extract_features()
 # just for a single image rather than list of images
-from helper_functions import slide_window, draw_boxes
-
 
 # Define a function you will pass an image
 # and the list of windows to be searched (output of slide_windows())
@@ -72,12 +67,20 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
 
 # Define a function you will pass an image
 # and the list of windows to be searched (output of slide_windows())
-def search_windows(img, windows, clf, scaler, color_space='RGB',
-                   spatial_size=(32, 32), hist_bins=32,
-                   hist_range=(0, 256), orient=9,
-                   pix_per_cell=8, cell_per_block=2,
-                   hog_channel=0, spatial_feat=True,
-                   hist_feat=True, hog_feat=True):
+def search_windows(img,
+                   windows, clf,
+                   scaler,
+                   color_space='RGB',
+                   spatial_size=(32, 32),
+                   hist_bins=32,
+                   hist_range=(0, 256),
+                   orient=9,
+                   pix_per_cell=8,
+                   cell_per_block=2,
+                   hog_channel=0,
+                   spatial_feat=True,
+                   hist_feat=True,
+                   hog_feat=True):
     # 1) Create an empty list to receive positive detection windows
     on_windows = []
     # 2) Iterate over all windows in the list
@@ -105,22 +108,26 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
 car_images = glob.glob('data/vehicles/**/*.png', recursive=True)
 non_car_images = glob.glob('data/non-vehicles/*/**.png', recursive=True)
 
-sample_size = 1500
+sample_size = 500
 cars = car_images[0:sample_size]
 non_cars = non_car_images[0:sample_size]
 
-### TODO: Tweak these parameters and see how the results change.
-color_space = 'RGB'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb # TODO: include color space
+color_space = 'YCrCb'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 orient = 9  # HOG orientations
 pix_per_cell = 8  # HOG pixels per cell
 cell_per_block = 2  # HOG cells per block
-hog_channel = 0  # Can be 0, 1, 2, or "ALL"
-spatial_size = (16, 16)  # Spatial binning dimensions
-hist_bins = 16  # Number of histogram bins
+hog_channel = 'ALL'  # Can be 0, 1, 2, or "ALL"
+spatial_size = (32, 32)  # Spatial binning dimensions
+hist_bins = 32  # Number of histogram bins
 spatial_feat = True  # Spatial features on or off
 hist_feat = True  # Histogram features on or off
 hog_feat = True  # HOG features on or off
-y_start_stop = [None, None]  # Min and max in y to search in slide_window()
+y_start_stop = [400, 656]  # Min and max in y to search in slide_window()
+
+# TODO: Just change find_cards to take in y_start_stop
+ystart = y_start_stop[0]
+ystop = y_start_stop[1]
+scale = 1.5
 
 car_features = []
 for file in tqdm(cars):
@@ -173,33 +180,12 @@ print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
 # Check the prediction time for a single sample
 t = time.time()
 
-image = mpimg.imread('test_images/test6.jpg')
-draw_image = np.copy(image)
+img = mpimg.imread('test_images/test2.jpg')
 
-# NOTE NOTE NOTE NOTE NOTE
-# Uncomment the following line if you extracted training
-# data from .png images (scaled 0 to 1 by mpimg) and the
-# image you are searching is a .jpg (scaled 0 to 255)
-# image = image.astype(np.float32)/255
+out_img = find_cars(img, scale=scale, ystart=ystart, ystop=ystop,
+                              pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
+                              orient=orient, spatial_size=spatial_size, hist_bins=hist_bins,
+                              X_scaler=X_scaler, svc=svc)
 
-windows = slide_window(image,
-                       x_start_stop=[None, None],
-                       y_start_stop=[None, None],
-                       xy_window=(96, 96),
-                       xy_overlap=(0.5, 0.5))
-
-hot_windows = search_windows(image, windows, svc, X_scaler,
-                             spatial_size=spatial_size,
-                             hist_bins=hist_bins,
-                             orient=orient,
-                             pix_per_cell=pix_per_cell,
-                             cell_per_block=cell_per_block,
-                             hog_channel=hog_channel,
-                             spatial_feat=spatial_feat,
-                             hist_feat=hist_feat,
-                             hog_feat=hog_feat)
-
-window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
-
-plt.imshow(window_img)
+plt.imshow(out_img)
 plt.show()
