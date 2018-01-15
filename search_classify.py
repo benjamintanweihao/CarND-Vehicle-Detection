@@ -10,23 +10,16 @@ from tqdm import tqdm
 from helper_functions import *
 import matplotlib.image as mpimg
 
-# Define a function to extract features from a single image window
-# This function is very similar to extract_features()
-# just for a single image rather than list of images
-
-# Define a function you will pass an image
-# and the list of windows to be searched (output of slide_windows())
-
 
 car_images = glob.glob('data/vehicles/**/*.png', recursive=True)
 non_car_images = glob.glob('data/non-vehicles/*/**.png', recursive=True)
 
-sample_size = 1000
-cars = car_images[0:sample_size]
-non_cars = non_car_images[0:sample_size]
+# sample_size = 1000
+# cars = car_images[0:sample_size]
+# non_cars = non_car_images[0:sample_size]
 
-# cars = car_images
-# non_cars = non_car_images
+cars = car_images
+non_cars = non_car_images
 
 color_space = 'YCrCb'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 orient = 9  # HOG orientations
@@ -94,47 +87,50 @@ print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
 # Check the prediction time for a single sample
 t = time.time()
 
+image = mpimg.imread('test_images/test1.jpg')
+(h, w, _) = image.shape
+
+# Globals
+heatmaps = []
+heatmap_sum = np.zeros((h, w)).astype(np.float64)
 
 def pipeline(img):
-    rectangles = []
     ystart = 400
     ystop = 656
     scale = 1.5
-    out_img, heat_map, rects = find_cars(img, scale=scale, ystart=ystart, ystop=ystop,
-                                         pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
-                                         orient=orient, spatial_size=spatial_size, hist_bins=hist_bins,
-                                         X_scaler=X_scaler, svc=svc)
 
-    rectangles.append(rects)
+    out_img, heatmap, rects = find_cars(img,
+                                         scale=scale,
+                                         ystart=ystart,
+                                         ystop=ystop,
+                                         pix_per_cell=pix_per_cell,
+                                         cell_per_block=cell_per_block,
+                                         orient=orient,
+                                         spatial_size=spatial_size,
+                                         hist_bins=hist_bins,
+                                         X_scaler=X_scaler,
+                                         svc=svc)
 
-    ystart = 400
-    ystop = 464
-    scale = 1.0
+    # heatmap_img = np.zeros_like(img[:, :, 0])
+    # heatmap_img = add_heat(heatmap_img, rects)
+    # heatmap_img = apply_threshold(heatmap_img, 1)
+    # labels = label(heatmap_img)
+    # draw_img = draw_labeled_bboxes(np.copy(img), labels)
+    global heatmaps
+    global heatmap_sum
 
-    out_img, heat_map, rects = find_cars(img, scale=scale, ystart=ystart, ystop=ystop,
-                                         pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
-                                         orient=orient, spatial_size=spatial_size, hist_bins=hist_bins,
-                                         X_scaler=X_scaler, svc=svc)
+    heatmaps.append(heatmap)
+    heatmap_sum += heatmap
 
-    rectangles.append(rects)
+    if len(heatmaps) > 10:
+        oldest_heatmap = heatmaps.pop(0)
+        heatmap_sum -= oldest_heatmap
+        heatmap_sum = np.clip(heatmap_sum, 0, 255)
 
-    ystart = 416
-    ystop = 480
-    scale = 1.0
+    heatmap_avg = np.divide(heatmap_sum, len(heatmaps))
 
-    out_img, heat_map, rects = find_cars(img, scale=scale, ystart=ystart, ystop=ystop,
-                                         pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
-                                         orient=orient, spatial_size=spatial_size, hist_bins=hist_bins,
-                                         X_scaler=X_scaler, svc=svc)
-
-    rectangles.append(rects)
-
-    rectangles = [item for sublist in rectangles for item in sublist]
-
-    heatmap_img = np.zeros_like(img[:, :, 0])
-    heatmap_img = add_heat(heatmap_img, rectangles)
-    heatmap_img = apply_threshold(heatmap_img, 0)
-    labels = label(heatmap_img)
+    heatmap_avg_threshold = apply_threshold(heatmap_avg, 1)
+    labels = label(heatmap_avg_threshold)
     draw_img = draw_labeled_bboxes(np.copy(img), labels)
 
     return draw_img
@@ -142,6 +138,6 @@ def pipeline(img):
 
 video_file_name = "project_video.mp4"
 write_output = 'output_video/' + video_file_name
-clip1 = VideoFileClip(video_file_name).subclip(9, 20)
+clip1 = VideoFileClip(video_file_name)
 clip2 = clip1.fl_image(pipeline)
 clip2.write_videofile(write_output, audio=False)
