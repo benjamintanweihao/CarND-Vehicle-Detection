@@ -108,7 +108,8 @@ def pipeline(img):
                                  [400, 596, 3.5],
                                  [464, 660, 3.5]]:
 
-        out_img, heat_map, rects = find_cars(img, scale=scale,
+        out_img, heat_map, rects = find_cars(img,
+                                             scale=scale,
                                              ystart=ystart,
                                              ystop=ystop,
                                              pix_per_cell=pix_per_cell,
