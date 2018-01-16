@@ -156,16 +156,20 @@ out_img, heatmap, rects = find_cars(img,
 
 The values for `ystart` and `ystop` correspond to the lower half of the image. This cuts down the search by half. I increased the scale by 1.5 since 1.0 was way too small and 1.5 was a good balance to capture vehicles that were slightly further away.
 
-I previously tried to include (and combine) other scales such as 1.0, 2.0, 2.5 and 3.0, but the algorithm ran too slowly and didn't yield any noticeable improvement.
+I previously tried to include (and combine) other scales such as 1.0, 2.0, 2.5 and 3.0, but the algorithm ran too slowly and didn't yield any noticeable improvement. Here's a frame that highlights the area searched:
 
-![alt text][image3]
+![](./writeup_images/sliding_window.png)
 
 #### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
 Ultimately I searched on only a single scale using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result. Here are some example images:
 
-![alt text][image4]
----
+![](./writeup_images/img0009.png)
+![](./writeup_images/img0103.png)
+![](./writeup_images/img0201.png)
+![](./writeup_images/img0304.png)
+![](./writeup_images/img0362.png)
+![](./writeup_images/img0376.png)
 
 ### Video Implementation
 
@@ -176,9 +180,28 @@ Here's a [link to my video result](./output_video/project_video.mp4)
 
 #### 2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
 
-I recorded the positions of positive detections in each frame of the video.  From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of each blob detected.  
+I recorded the heatmaps from each invocation of `find_cars()`. I keep a maximum of 10 heatmaps before discarding the oldest one. Then I compute the average of the heatmaps. The averaged heatmap is then thresholded and used to draw the labeled box:
 
-Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
+```python
+global heatmaps
+global heatmap_sum
+
+heatmaps.append(heatmap)
+heatmap_sum += heatmap
+
+if len(heatmaps) > 10:
+    oldest_heatmap = heatmaps.pop(0)
+    heatmap_sum -= oldest_heatmap
+    heatmap_sum = np.clip(heatmap_sum, 0, 255)
+
+heatmap_avg = np.divide(heatmap_sum, len(heatmaps))
+
+heatmap_avg_threshold = apply_threshold(heatmap_avg, 1)
+labels = label(heatmap_avg_threshold)
+draw_img = draw_labeled_bboxes(np.copy(img), labels)
+```
+
+My previous implementation didn't account for any previous heatmaps. This resulted in a bounding box that was less stable - it basically grew or shrank wildly on each frame. This improved implementation of averaging heatmaps gave a much more stable bounding box.
 
 ### Here are six frames and their corresponding heatmaps:
 
@@ -189,8 +212,6 @@ Here's an example result showing the heatmap from a series of frames of video, t
 
 ### Here the resulting bounding boxes are drawn onto the last frame in the series:
 ![alt text][image7]
-
-
 
 ---
 
