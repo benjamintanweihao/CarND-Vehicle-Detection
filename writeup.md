@@ -137,26 +137,28 @@ round(svc.score(X_test, y_test), 4)
 The sliding window search is implemented in the `find_cars` function:
 
 ```python
-ystart = 400
-ystop = 656
-scale = 1.5
+for [ystart, ystop, scale] in [[400, 464, 1.0],
+                                 [400, 656, 1.5],
+                                 [400, 496, 1.5],
+                                 [400, 528, 2.0],
+                                 [432. 560, 2.0]]:
 
-out_img, heatmap, rects = find_cars(img,
-                                      scale=scale,
-                                      ystart=ystart,
-                                      ystop=ystop,
-                                      pix_per_cell=pix_per_cell,
-                                      cell_per_block=cell_per_block,
-                                      orient=orient,
-                                      spatial_size=spatial_size,
-                                      hist_bins=hist_bins,
-                                      X_scaler=X_scaler,
-                                      svc=svc)
+    out_img, heatmap, rects = find_cars(img,
+                                        scale=scale,
+                                        ystart=ystart,
+                                        ystop=ystop,
+                                        pix_per_cell=pix_per_cell,
+                                        cell_per_block=cell_per_block,
+                                        orient=orient,
+                                        spatial_size=spatial_size,
+                                        hist_bins=hist_bins,
+                                        X_scaler=X_scaler,
+                                        svc=svc)
 ```
 
-The values for `ystart` and `ystop` correspond to the lower half of the image. This cuts down the search by half. I increased the scale by 1.5 since 1.0 was way too small and 1.5 was a good balance to capture vehicles that were slightly further away.
+The values chose for `ystart` and `ystop` at different scales search different parts of the road. For lower values of `scale`, the search looks close to the horizon of the road for smaller vehicles, while larger values tend to pick up vehicles that are closer to the driver.
 
-I previously tried to include (and combine) other scales such as 1.0, 2.0, 2.5 and 3.0, but the algorithm ran too slowly and didn't yield any noticeable improvement. Here's a frame that highlights the area searched:
+Here's a frame that highlights the area searched:
 
 ![](./writeup_images/sliding_window.png)
 
@@ -180,22 +182,21 @@ Here's a [link to my video result](./output_video/project_video.mp4)
 
 #### 2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
 
-I recorded the heatmaps from each invocation of `find_cars()`. I keep a maximum of 10 heatmaps before discarding the oldest one. Then I compute the average of the heatmaps. The averaged heatmap is then thresholded and used to draw the labeled box:
+I recorded the heatmaps from each invocation of `find_cars()` at the predetermined `ystart`, `ystop` and `scale` values. I keep a maximum of 10 heatmaps before discarding the oldest one. Then I compute the average of the heatmaps. The averaged heatmap is then thresholded and used to draw the labeled box:
 
 ```python
-global heatmaps
+global heatmaps_history
 global heatmap_sum
 
-heatmaps.append(heatmap)
-heatmap_sum += heatmap
+heatmaps_history.append(heatmap_img)
+heatmap_sum += heatmap_img
 
-if len(heatmaps) > 10:
-    oldest_heatmap = heatmaps.pop(0)
+if len(heatmaps_history) > 10:
+    oldest_heatmap = heatmaps_history.pop(0)
     heatmap_sum -= oldest_heatmap
     heatmap_sum = np.clip(heatmap_sum, 0, 255)
 
-heatmap_avg = np.divide(heatmap_sum, len(heatmaps))
-
+heatmap_avg = np.divide(heatmap_sum, len(heatmaps_history))
 heatmap_avg_threshold = apply_threshold(heatmap_avg, 1)
 labels = label(heatmap_avg_threshold)
 draw_img = draw_labeled_bboxes(np.copy(img), labels)

@@ -96,99 +96,27 @@ heatmap_sum = np.zeros((h, w)).astype(np.float64)
 
 def pipeline(img):
     rectangles = []
-    ystart = 400
-    ystop = 656
-    scale = 1.5
 
-    out_img, heatmap, rects = find_cars(img,
-                                        scale=scale,
-                                        ystart=ystart,
-                                        ystop=ystop,
-                                        pix_per_cell=pix_per_cell,
-                                        cell_per_block=cell_per_block,
-                                        orient=orient,
-                                        spatial_size=spatial_size,
-                                        hist_bins=hist_bins,
-                                        X_scaler=X_scaler,
-                                        svc=svc)
-    rectangles.append(rects)
-    print(rects)
+    for [ystart, ystop, scale] in [[400, 464, 1.0],
+                                   [400, 656, 1.5],
+                                   [400, 496, 1.5],
+                                   [400, 528, 2.0],
+                                   [432. 560, 2.0]]:
 
-    ystart = 400
-    ystop = 496
-    scale = 1.5
+        out_img, heatmap, rects = find_cars(img,
+                                            scale=scale,
+                                            ystart=ystart,
+                                            ystop=ystop,
+                                            pix_per_cell=pix_per_cell,
+                                            cell_per_block=cell_per_block,
+                                            orient=orient,
+                                            spatial_size=spatial_size,
+                                            hist_bins=hist_bins,
+                                            X_scaler=X_scaler,
+                                            svc=svc)
+        rectangles.append(rects)
+        print(rects)
 
-    out_img, heatmap, rects = find_cars(img,
-                                        scale=scale,
-                                        ystart=ystart,
-                                        ystop=ystop,
-                                        pix_per_cell=pix_per_cell,
-                                        cell_per_block=cell_per_block,
-                                        orient=orient,
-                                        spatial_size=spatial_size,
-                                        hist_bins=hist_bins,
-                                        X_scaler=X_scaler,
-                                        svc=svc)
-
-    rectangles.append(rects)
-    print(rects)
-
-    ystart = 400
-    ystop = 464
-    scale = 1.0
-
-    out_img, heatmap, rects = find_cars(img,
-                                        scale=scale,
-                                        ystart=ystart,
-                                        ystop=ystop,
-                                        pix_per_cell=pix_per_cell,
-                                        cell_per_block=cell_per_block,
-                                        orient=orient,
-                                        spatial_size=spatial_size,
-                                        hist_bins=hist_bins,
-                                        X_scaler=X_scaler,
-                                        svc=svc)
-
-    rectangles.append(rects)
-    print(rects)
-
-    ystart = 400
-    ystop = 528
-    scale = 2.0
-
-    out_img, heatmap, rects = find_cars(img,
-                                        scale=scale,
-                                        ystart=ystart,
-                                        ystop=ystop,
-                                        pix_per_cell=pix_per_cell,
-                                        cell_per_block=cell_per_block,
-                                        orient=orient,
-                                        spatial_size=spatial_size,
-                                        hist_bins=hist_bins,
-                                        X_scaler=X_scaler,
-                                        svc=svc)
-
-    rectangles.append(rects)
-    print(rects)
-
-    ystart = 432
-    ystop = 560
-    scale = 2.0
-
-    out_img, heatmap, rects = find_cars(img,
-                                        scale=scale,
-                                        ystart=ystart,
-                                        ystop=ystop,
-                                        pix_per_cell=pix_per_cell,
-                                        cell_per_block=cell_per_block,
-                                        orient=orient,
-                                        spatial_size=spatial_size,
-                                        hist_bins=hist_bins,
-                                        X_scaler=X_scaler,
-                                        svc=svc)
-
-    rectangles.append(rects)
-    print(rects)
 
     rectangles = [item for sublist in rectangles for item in sublist]
 
