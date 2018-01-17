@@ -201,23 +201,19 @@ labels = label(heatmap_avg_threshold)
 draw_img = draw_labeled_bboxes(np.copy(img), labels)
 ```
 
-My previous implementation didn't account for any previous heatmaps. This resulted in a bounding box that was less stable - it basically grew or shrank wildly on each frame. This improved implementation of averaging heatmaps gave a much more stable bounding box.
 
-### Here are six frames and their corresponding heatmaps:
+Here's an example of a frame with bounded boxes with its' corresponding heatmap:
 
-![alt text][image5]
-
-### Here is the output of `scipy.ndimage.measurements.label()` on the integrated heatmap from all six frames:
-![alt text][image6]
-
-### Here the resulting bounding boxes are drawn onto the last frame in the series:
-![alt text][image7]
-
----
+![](./writeup_images/heat_map_1.png)
 
 ### Discussion
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+My initial attempt didn't account for any previous heatmaps. Instead, it used whatever heatmap that was returned by `find_cars()` and used that to draw the bounding box. This resulted in a bounding box that was less stable - it basically grew or shrank wildly on each frame. This improved implementation of averaging heatmaps gave a much more stable bounding box.
 
+It is not clear how the pipeline will fair in different weather conditions. One way to make the pipeline more robust would be to augment the training images with different color intensities and brightness. 
+
+Another consideration is the type of vehicles. Motorcyclists might not be identified properly, for example. It might not do too well on congested roads either. 
+
+Overall I think the pipeline does pretty well and I was pleasantly surprised by the accuracy of the SVM.

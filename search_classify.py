@@ -10,7 +10,6 @@ from tqdm import tqdm
 from helper_functions import *
 import matplotlib.image as mpimg
 
-
 car_images = glob.glob('data/vehicles/**/*.png', recursive=True)
 non_car_images = glob.glob('data/non-vehicles/*/**.png', recursive=True)
 
@@ -91,44 +90,123 @@ image = mpimg.imread('test_images/test1.jpg')
 (h, w, _) = image.shape
 
 # Globals
-heatmaps = []
+heatmaps_history = []
 heatmap_sum = np.zeros((h, w)).astype(np.float64)
 
+
 def pipeline(img):
+    rectangles = []
     ystart = 400
     ystop = 656
     scale = 1.5
 
     out_img, heatmap, rects = find_cars(img,
-                                         scale=scale,
-                                         ystart=ystart,
-                                         ystop=ystop,
-                                         pix_per_cell=pix_per_cell,
-                                         cell_per_block=cell_per_block,
-                                         orient=orient,
-                                         spatial_size=spatial_size,
-                                         hist_bins=hist_bins,
-                                         X_scaler=X_scaler,
-                                         svc=svc)
+                                        scale=scale,
+                                        ystart=ystart,
+                                        ystop=ystop,
+                                        pix_per_cell=pix_per_cell,
+                                        cell_per_block=cell_per_block,
+                                        orient=orient,
+                                        spatial_size=spatial_size,
+                                        hist_bins=hist_bins,
+                                        X_scaler=X_scaler,
+                                        svc=svc)
+    rectangles.append(rects)
+    print(rects)
 
-    # heatmap_img = np.zeros_like(img[:, :, 0])
-    # heatmap_img = add_heat(heatmap_img, rects)
-    # heatmap_img = apply_threshold(heatmap_img, 1)
-    # labels = label(heatmap_img)
-    # draw_img = draw_labeled_bboxes(np.copy(img), labels)
-    global heatmaps
+    ystart = 400
+    ystop = 496
+    scale = 1.5
+
+    out_img, heatmap, rects = find_cars(img,
+                                        scale=scale,
+                                        ystart=ystart,
+                                        ystop=ystop,
+                                        pix_per_cell=pix_per_cell,
+                                        cell_per_block=cell_per_block,
+                                        orient=orient,
+                                        spatial_size=spatial_size,
+                                        hist_bins=hist_bins,
+                                        X_scaler=X_scaler,
+                                        svc=svc)
+
+    rectangles.append(rects)
+    print(rects)
+
+    ystart = 400
+    ystop = 464
+    scale = 1.0
+
+    out_img, heatmap, rects = find_cars(img,
+                                        scale=scale,
+                                        ystart=ystart,
+                                        ystop=ystop,
+                                        pix_per_cell=pix_per_cell,
+                                        cell_per_block=cell_per_block,
+                                        orient=orient,
+                                        spatial_size=spatial_size,
+                                        hist_bins=hist_bins,
+                                        X_scaler=X_scaler,
+                                        svc=svc)
+
+    rectangles.append(rects)
+    print(rects)
+
+    ystart = 400
+    ystop = 528
+    scale = 2.0
+
+    out_img, heatmap, rects = find_cars(img,
+                                        scale=scale,
+                                        ystart=ystart,
+                                        ystop=ystop,
+                                        pix_per_cell=pix_per_cell,
+                                        cell_per_block=cell_per_block,
+                                        orient=orient,
+                                        spatial_size=spatial_size,
+                                        hist_bins=hist_bins,
+                                        X_scaler=X_scaler,
+                                        svc=svc)
+
+    rectangles.append(rects)
+    print(rects)
+
+    ystart = 432
+    ystop = 560
+    scale = 2.0
+
+    out_img, heatmap, rects = find_cars(img,
+                                        scale=scale,
+                                        ystart=ystart,
+                                        ystop=ystop,
+                                        pix_per_cell=pix_per_cell,
+                                        cell_per_block=cell_per_block,
+                                        orient=orient,
+                                        spatial_size=spatial_size,
+                                        hist_bins=hist_bins,
+                                        X_scaler=X_scaler,
+                                        svc=svc)
+
+    rectangles.append(rects)
+    print(rects)
+
+    rectangles = [item for sublist in rectangles for item in sublist]
+
+    heatmap_img = np.zeros_like(img[:, :, 0])
+    heatmap_img = add_heat(heatmap_img, rectangles)
+
+    global heatmaps_history
     global heatmap_sum
 
-    heatmaps.append(heatmap)
-    heatmap_sum += heatmap
+    heatmaps_history.append(heatmap_img)
+    heatmap_sum += heatmap_img
 
-    if len(heatmaps) > 10:
-        oldest_heatmap = heatmaps.pop(0)
+    if len(heatmaps_history) > 10:
+        oldest_heatmap = heatmaps_history.pop(0)
         heatmap_sum -= oldest_heatmap
         heatmap_sum = np.clip(heatmap_sum, 0, 255)
 
-    heatmap_avg = np.divide(heatmap_sum, len(heatmaps))
-
+    heatmap_avg = np.divide(heatmap_sum, len(heatmaps_history))
     heatmap_avg_threshold = apply_threshold(heatmap_avg, 1)
     labels = label(heatmap_avg_threshold)
     draw_img = draw_labeled_bboxes(np.copy(img), labels)
